@@ -45,23 +45,26 @@ class InvDynamicsNetwork(nn.Module):
     '''
     def __init__(self):
         super().__init__()
-
         #This network should take in 4 inputs corresponding to car position and velocity in s and s'
         # and have 3 outputs corresponding to the three different actions
 
         #################
         #TODO:
         #################
+        input_dim = 4
+        hidden_dim = 40
+        output_dim = 3
+
+        self.fc1 = nn.Linear(input_dim, hidden_dim)
+        self.relu = nn.ReLU()
+        self.fc2 = nn.Linear(hidden_dim, output_dim)
 
     def forward(self, x):
         #this method performs a forward pass through the network
         ###############
         #TODO:
         ###############
-        return x
-    
-
-
+        return self.fc2(self.relu(self.fc1(x)))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=None)
@@ -73,7 +76,7 @@ if __name__ == "__main__":
 
 
     #collect random interaction data
-    num_interactions = 5
+    num_interactions = 50
     s_s2, acs = collect_random_interaction_data(num_interactions)
     #put the data into tensors for feeding into torch
     s_s2_torch = torch.from_numpy(np.array(s_s2)).float().to(device)
@@ -85,8 +88,24 @@ if __name__ == "__main__":
     ##################
     #TODO: Train the inverse dyanmics model, no need to be fancy you can do it in one full batch via gradient descent if you like
     ##################
+    inv_dyn.train()
+    optimizer = Adam(inv_dyn.parameters(), lr=1e-2)
+    criterion = nn.CrossEntropyLoss()
 
 
+    for i in range(100):
+        # Clear gradients so that they don't accumulate 
+        optimizer.zero_grad()
+
+        # Forwards pass. Simply run the nn_policy network with obs as input
+        logits = inv_dyn(s_s2_torch)
+
+        # Evaluate loss. Evaluate our loss on the network output (logits) and compare with expert actions (acs)
+        loss = criterion(logits, a_torch)
+
+        # Backwards pass
+        loss.backward()
+        optimizer.step()
 
     #collect human demos
     demos = collect_human_demos(args.num_demos)
